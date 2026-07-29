@@ -42,11 +42,14 @@ public class Trip {
     @Column(nullable = false)
     private LocalDate startDate;
 
-    @Column(nullable = false)
+    @Column(name = "end_date")
     private LocalDate endDate;
 
     @Column(length = 1000)
     private String description;
+
+    @Column(name = "cover_image_path", length = 500)
+    private String coverImagePath;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -84,5 +87,9 @@ public class Trip {
                 endDate,
                 description
         );
+    }
+
+    public void updateCoverImagePath(String coverImagePath) {
+        this.coverImagePath = coverImagePath;
     }
 }

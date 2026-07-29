@@ -36,6 +36,11 @@ public class SecurityConfig {
                                 "/api/members/login"
                         ).permitAll()
 
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/uploads/**"
+                        ).permitAll()
+
                         // 기존 서버 테스트 API 허용
                         .requestMatchers("/api/test").permitAll()
 

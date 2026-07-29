@@ -8,6 +8,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import com.shinwonjin.traveldiary.dto.common.ErrorResponse;
 
@@ -35,7 +36,11 @@ public class GlobalExceptionHandler {
         String message = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .map(error ->
+                        error.getField()
+                                + ": "
+                                + error.getDefaultMessage()
+                )
                 .collect(Collectors.joining(", "));
 
         ErrorResponse response = ErrorResponse.of(
@@ -59,6 +64,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException exception
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+                HttpStatus.CONTENT_TOO_LARGE.value(),
+                "대표 이미지는 10MB 이하로 등록해 주세요."
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CONTENT_TOO_LARGE)
                 .body(response);
     }
 }
