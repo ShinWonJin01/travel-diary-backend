@@ -65,4 +65,8 @@ public class Member {
                 nickname
         );
     }
+
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
