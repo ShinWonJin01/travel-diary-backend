@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
+import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.service.TripService;
 
@@ -46,15 +47,15 @@ public class TripController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TripResponse>> getMyTrips(
+    public ResponseEntity<List<TripListResponse>> getMyTrips(
             @AuthenticationPrincipal Jwt jwt
     ) {
-        Long memberId = Long.valueOf(jwt.getSubject());
+    Long memberId = Long.valueOf(jwt.getSubject());
 
-        List<TripResponse> response =
-                tripService.getMyTrips(memberId);
+    List<TripListResponse> response =
+            tripService.getMyTrips(memberId);
 
-        return ResponseEntity.ok(response);
+    return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{tripId}")
