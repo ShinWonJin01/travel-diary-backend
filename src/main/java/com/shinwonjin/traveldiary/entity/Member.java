@@ -36,6 +36,12 @@ public class Member {
     @Column(nullable = false, unique = true, length = 20)
     private String nickname;
 
+    @Column(
+            name = "profile_image_path",
+            length = 500
+    )
+    private String profileImagePath;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -66,7 +72,28 @@ public class Member {
         );
     }
 
-    public void changePassword(String encodedPassword) {
+    public void changePassword(
+            String encodedPassword
+    ) {
         this.password = encodedPassword;
+    }
+
+    public void updateProfile(
+            String name,
+            String nickname
+    ) {
+        this.name = name;
+        this.nickname = nickname;
+    }
+
+    public void updateProfileImagePath(
+            String profileImagePath
+    ) {
+        this.profileImagePath =
+                profileImagePath;
+    }
+
+    public void clearProfileImagePath() {
+        this.profileImagePath = null;
     }
 }

@@ -9,6 +9,7 @@ public record MemberResponse(
         String name,
         String email,
         String nickname,
+        String profileImagePath,
         LocalDateTime createdAt
 ) {
 
@@ -18,6 +19,7 @@ public record MemberResponse(
                 member.getName(),
                 member.getEmail(),
                 member.getNickname(),
+                member.getProfileImagePath(),
                 member.getCreatedAt()
         );
     }

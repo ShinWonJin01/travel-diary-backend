@@ -27,6 +27,9 @@ public class FileStorageService {
                     "image/webp"
             );
 
+    private static final String PROFILE_IMAGE_PREFIX =
+            "/uploads/profiles/";
+
     private final Path uploadRoot;
 
     public FileStorageService(
@@ -42,45 +45,134 @@ public class FileStorageService {
             Long tripId,
             MultipartFile file
     ) {
-        validateImage(file);
+        validateImage(
+                file,
+                "대표 이미지를 선택해 주세요.",
+                "대표 이미지는 10MB 이하로 등록해 주세요."
+        );
 
-        String extension =
-                getExtension(file.getContentType());
+        return storeImage(
+                "trips",
+                String.valueOf(tripId),
+                file
+        );
+    }
 
-        String storedFileName =
-                UUID.randomUUID() + extension;
+    public String storeProfileImage(
+            Long memberId,
+            MultipartFile file
+    ) {
+        validateImage(
+                file,
+                "프로필 이미지를 선택해 주세요.",
+                "프로필 이미지는 10MB 이하로 등록해 주세요."
+        );
 
-        Path tripDirectory = uploadRoot
-                .resolve("trips")
-                .resolve(String.valueOf(tripId))
+        return storeImage(
+                "profiles",
+                String.valueOf(memberId),
+                file
+        );
+    }
+
+    public void deleteProfileImage(
+            String profileImagePath
+    ) {
+        if (
+                profileImagePath == null
+                || profileImagePath.isBlank()
+        ) {
+            return;
+        }
+
+        if (!profileImagePath.startsWith(
+                PROFILE_IMAGE_PREFIX
+        )) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 프로필 이미지 경로입니다."
+            );
+        }
+
+        String relativePath =
+                profileImagePath.substring(
+                        "/uploads/".length()
+                );
+
+        Path targetPath = uploadRoot
+                .resolve(relativePath)
                 .normalize();
 
-        if (!tripDirectory.startsWith(uploadRoot)) {
+        if (!targetPath.startsWith(uploadRoot)) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 파일 삭제 경로입니다."
+            );
+        }
+
+        try {
+            Files.deleteIfExists(targetPath);
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "프로필 이미지 파일을 삭제하지 못했습니다.",
+                    exception
+            );
+        }
+    }
+
+    private String storeImage(
+            String category,
+            String targetId,
+            MultipartFile file
+    ) {
+        String extension =
+                getExtension(
+                        file.getContentType()
+                );
+
+        String storedFileName =
+                UUID.randomUUID()
+                + extension;
+
+        Path targetDirectory =
+                uploadRoot
+                        .resolve(category)
+                        .resolve(targetId)
+                        .normalize();
+
+        if (!targetDirectory.startsWith(
+                uploadRoot
+        )) {
             throw new IllegalArgumentException(
                     "올바르지 않은 파일 저장 경로입니다."
             );
         }
 
-        Path targetPath = tripDirectory
-                .resolve(storedFileName)
-                .normalize();
+        Path targetPath =
+                targetDirectory
+                        .resolve(storedFileName)
+                        .normalize();
 
-        if (!targetPath.startsWith(tripDirectory)) {
+        if (!targetPath.startsWith(
+                targetDirectory
+        )) {
             throw new IllegalArgumentException(
                     "올바르지 않은 파일 저장 경로입니다."
             );
         }
 
         try {
-            Files.createDirectories(tripDirectory);
+            Files.createDirectories(
+                    targetDirectory
+            );
 
-            try (InputStream inputStream =
-                         file.getInputStream()) {
-
+            try (
+                    InputStream inputStream =
+                            file.getInputStream()
+            ) {
                 Files.copy(
                         inputStream,
                         targetPath,
-                        StandardCopyOption.REPLACE_EXISTING
+                        StandardCopyOption
+                                .REPLACE_EXISTING
                 );
             }
         } catch (IOException exception) {
@@ -90,32 +182,49 @@ public class FileStorageService {
             );
         }
 
-        return "/uploads/trips/"
-                + tripId
+        return "/uploads/"
+                + category
+                + "/"
+                + targetId
                 + "/"
                 + storedFileName;
     }
 
-    private void validateImage(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
+    private void validateImage(
+            MultipartFile file,
+            String emptyMessage,
+            String sizeMessage
+    ) {
+        if (
+                file == null
+                || file.isEmpty()
+        ) {
             throw new IllegalArgumentException(
-                    "대표 이미지를 선택해 주세요."
+                    emptyMessage
             );
         }
 
-        if (file.getSize() > MAX_FILE_SIZE) {
+        if (
+                file.getSize()
+                > MAX_FILE_SIZE
+        ) {
             throw new IllegalArgumentException(
-                    "대표 이미지는 10MB 이하로 등록해 주세요."
+                    sizeMessage
             );
         }
 
-        String contentType = file.getContentType();
+        String contentType =
+                file.getContentType();
 
         if (
                 contentType == null
-                || !ALLOWED_CONTENT_TYPES.contains(
-                        contentType.toLowerCase(Locale.ROOT)
-                )
+                || !ALLOWED_CONTENT_TYPES
+                        .contains(
+                                contentType
+                                        .toLowerCase(
+                                                Locale.ROOT
+                                        )
+                        )
         ) {
             throw new IllegalArgumentException(
                     "JPG, PNG 또는 WEBP 이미지만 등록할 수 있습니다."
@@ -123,7 +232,9 @@ public class FileStorageService {
         }
     }
 
-    private String getExtension(String contentType) {
+    private String getExtension(
+            String contentType
+    ) {
         if (contentType == null) {
             throw new IllegalArgumentException(
                     "이미지 형식을 확인할 수 없습니다."
@@ -131,14 +242,18 @@ public class FileStorageService {
         }
 
         return switch (
-                contentType.toLowerCase(Locale.ROOT)
+                contentType.toLowerCase(
+                        Locale.ROOT
+                )
         ) {
             case "image/jpeg" -> ".jpg";
             case "image/png" -> ".png";
             case "image/webp" -> ".webp";
-            default -> throw new IllegalArgumentException(
-                    "지원하지 않는 이미지 형식입니다."
-            );
+
+            default ->
+                    throw new IllegalArgumentException(
+                            "지원하지 않는 이미지 형식입니다."
+                    );
         };
     }
 }

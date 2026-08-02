@@ -3,12 +3,16 @@ package com.shinwonjin.traveldiary.service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.shinwonjin.traveldiary.dto.member.MemberCreateRequest;
 import com.shinwonjin.traveldiary.dto.member.MemberDeleteRequest;
 import com.shinwonjin.traveldiary.dto.member.MemberLoginRequest;
 import com.shinwonjin.traveldiary.dto.member.MemberLoginResponse;
 import com.shinwonjin.traveldiary.dto.member.MemberPasswordChangeRequest;
+import com.shinwonjin.traveldiary.dto.member.MemberProfileUpdateRequest;
 import com.shinwonjin.traveldiary.dto.member.MemberResponse;
 import com.shinwonjin.traveldiary.entity.Member;
 import com.shinwonjin.traveldiary.repository.MemberRepository;
@@ -22,13 +26,18 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final FileStorageService fileStorageService;
 
     @Transactional
-    public MemberResponse createMember(MemberCreateRequest request) {
+    public MemberResponse createMember(
+            MemberCreateRequest request
+    ) {
         validateDuplicateMember(request);
 
         String encodedPassword =
-                passwordEncoder.encode(request.password());
+                passwordEncoder.encode(
+                        request.password()
+                );
 
         Member member = Member.create(
                 request.name().trim(),
@@ -65,7 +74,9 @@ public class MemberService {
         }
 
         String accessToken =
-                jwtTokenService.createAccessToken(member);
+                jwtTokenService.createAccessToken(
+                        member
+                );
 
         return new MemberLoginResponse(
                 accessToken,
@@ -74,6 +85,149 @@ public class MemberService {
                         .getAccessTokenExpirationSeconds(),
                 MemberResponse.from(member)
         );
+    }
+
+    @Transactional
+    public MemberResponse updateProfile(
+            Long memberId,
+            MemberProfileUpdateRequest request
+    ) {
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        String name =
+                request.name().trim();
+
+        String nickname =
+                request.nickname().trim();
+
+        memberRepository
+                .findByNickname(nickname)
+                .ifPresent(existingMember -> {
+                    if (
+                            !existingMember
+                                    .getId()
+                                    .equals(memberId)
+                    ) {
+                        throw new IllegalArgumentException(
+                                "이미 사용 중인 닉네임입니다."
+                        );
+                    }
+                });
+
+        member.updateProfile(
+                name,
+                nickname
+        );
+
+        return MemberResponse.from(member);
+    }
+
+    @Transactional
+    public MemberResponse uploadProfileImage(
+            Long memberId,
+            MultipartFile file
+    ) {
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        String previousProfileImagePath =
+                member.getProfileImagePath();
+
+        String newProfileImagePath =
+                fileStorageService.storeProfileImage(
+                        memberId,
+                        file
+                );
+
+        member.updateProfileImagePath(
+                newProfileImagePath
+        );
+
+        TransactionSynchronizationManager
+                .registerSynchronization(
+                        new TransactionSynchronization() {
+
+                            @Override
+                            public void afterCommit() {
+                                if (
+                                        previousProfileImagePath != null
+                                        && !previousProfileImagePath.isBlank()
+                                ) {
+                                    fileStorageService
+                                            .deleteProfileImage(
+                                                    previousProfileImagePath
+                                            );
+                                }
+                            }
+
+                            @Override
+                            public void afterCompletion(
+                                    int status
+                            ) {
+                                if (
+                                        status
+                                        != TransactionSynchronization.STATUS_COMMITTED
+                                ) {
+                                    fileStorageService
+                                            .deleteProfileImage(
+                                                    newProfileImagePath
+                                            );
+                                }
+                            }
+                        }
+                );
+
+        return MemberResponse.from(member);
+    }
+
+    @Transactional
+    public MemberResponse resetProfileImage(
+            Long memberId
+    ) {
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        String previousProfileImagePath =
+                member.getProfileImagePath();
+
+        member.clearProfileImagePath();
+
+        if (
+                previousProfileImagePath != null
+                && !previousProfileImagePath.isBlank()
+        ) {
+            TransactionSynchronizationManager
+                    .registerSynchronization(
+                            new TransactionSynchronization() {
+
+                                @Override
+                                public void afterCommit() {
+                                    fileStorageService
+                                            .deleteProfileImage(
+                                                    previousProfileImagePath
+                                            );
+                                }
+                            }
+                    );
+        }
+
+        return MemberResponse.from(member);
     }
 
     @Transactional
@@ -112,7 +266,9 @@ public class MemberService {
                         request.newPassword()
                 );
 
-        member.changePassword(encodedNewPassword);
+        member.changePassword(
+                encodedNewPassword
+        );
     }
 
     @Transactional
@@ -143,17 +299,21 @@ public class MemberService {
     private void validateDuplicateMember(
             MemberCreateRequest request
     ) {
-        if (memberRepository.existsByEmail(
-                request.email()
-        )) {
+        if (
+                memberRepository.existsByEmail(
+                        request.email()
+                )
+        ) {
             throw new IllegalArgumentException(
                     "이미 사용 중인 이메일입니다."
             );
         }
 
-        if (memberRepository.existsByNickname(
-                request.nickname()
-        )) {
+        if (
+                memberRepository.existsByNickname(
+                        request.nickname()
+                )
+        ) {
             throw new IllegalArgumentException(
                     "이미 사용 중인 닉네임입니다."
             );
