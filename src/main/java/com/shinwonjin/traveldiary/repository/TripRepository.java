@@ -15,4 +15,6 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
             Long tripId,
             Long ownerId
     );
+
+    long countByOwnerId(Long ownerId);
 }

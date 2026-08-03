@@ -67,4 +67,10 @@ public interface TripMemberRepository
             Long tripId,
             TripMemberStatus status
     );
+
+    long countByMemberIdAndRoleAndStatus(
+            Long memberId,
+            TripMemberRole role,
+            TripMemberStatus status
+    );
 }

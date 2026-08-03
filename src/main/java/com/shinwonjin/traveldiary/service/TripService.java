@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
 import com.shinwonjin.traveldiary.entity.Member;
 import com.shinwonjin.traveldiary.entity.Trip;
 import com.shinwonjin.traveldiary.entity.TripMember;
@@ -151,6 +152,29 @@ public class TripService {
                         ).reversed()
                 )
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public TripSummaryResponse getTripSummary(Long memberId) {
+        long ownedCount =
+                tripRepository.countByOwnerId(memberId);
+
+        long participatingCount =
+                tripMemberRepository
+                        .countByMemberIdAndRoleAndStatus(
+                                memberId,
+                                TripMemberRole.MEMBER,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        long totalCount =
+                ownedCount + participatingCount;
+
+        return new TripSummaryResponse(
+                totalCount,
+                ownedCount,
+                participatingCount
+        );
     }
 
     @Transactional(readOnly = true)
