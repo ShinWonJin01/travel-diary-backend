@@ -75,4 +75,6 @@ public interface TripMemberRepository
     );
 
     void deleteAllByTripId(Long tripId);
+
+    void deleteAllByMemberId(Long memberId);
 }

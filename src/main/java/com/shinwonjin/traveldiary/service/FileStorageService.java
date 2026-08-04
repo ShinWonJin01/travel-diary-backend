@@ -59,6 +59,23 @@ public class FileStorageService {
         );
     }
 
+    public String storeTripPhoto(
+            Long tripId,
+            MultipartFile file
+    ) {
+        validateImage(
+                file,
+                "여행 사진을 선택해 주세요.",
+                "여행 사진은 10MB 이하로 등록해 주세요."
+        );
+
+        return storeImage(
+                "trips",
+                String.valueOf(tripId),
+                file
+        );
+    }
+
     public String storeProfileImage(
             Long memberId,
             MultipartFile file
@@ -114,6 +131,53 @@ public class FileStorageService {
         } catch (IOException exception) {
             throw new IllegalStateException(
                     "프로필 이미지 파일을 삭제하지 못했습니다.",
+                    exception
+            );
+        }
+    }
+
+    public void deleteTripPhoto(
+            Long tripId,
+            String photoPath
+    ) {
+        if (
+                photoPath == null
+                || photoPath.isBlank()
+        ) {
+            return;
+        }
+
+        String expectedPrefix =
+                "/uploads/trips/"
+                + tripId
+                + "/";
+
+        if (!photoPath.startsWith(expectedPrefix)) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 여행 사진 경로입니다."
+            );
+        }
+
+        String relativePath =
+                photoPath.substring(
+                        "/uploads/".length()
+                );
+
+        Path targetPath = uploadRoot
+                .resolve(relativePath)
+                .normalize();
+
+        if (!targetPath.startsWith(uploadRoot)) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 파일 삭제 경로입니다."
+            );
+        }
+
+        try {
+            Files.deleteIfExists(targetPath);
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "여행 사진 파일을 삭제하지 못했습니다.",
                     exception
             );
         }

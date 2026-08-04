@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripPhotoResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
@@ -165,5 +166,61 @@ public class TripController {
                 );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(
+            value = "/{tripId}/photos",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<TripPhotoResponse> uploadTripPhoto(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        Long memberId = Long.valueOf(jwt.getSubject());
+
+        TripPhotoResponse response =
+                tripService.uploadTripPhoto(
+                        memberId,
+                        tripId,
+                        file
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    @GetMapping("/{tripId}/photos")
+    public ResponseEntity<List<TripPhotoResponse>> getTripPhotos(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId
+    ) {
+        Long memberId = Long.valueOf(jwt.getSubject());
+
+        List<TripPhotoResponse> response =
+                tripService.getTripPhotos(
+                        memberId,
+                        tripId
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{tripId}/photos/{photoId}")
+    public ResponseEntity<Void> deleteTripPhoto(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId,
+            @PathVariable Long photoId
+    ) {
+        Long memberId = Long.valueOf(jwt.getSubject());
+
+        tripService.deleteTripPhoto(
+                memberId,
+                tripId,
+                photoId
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

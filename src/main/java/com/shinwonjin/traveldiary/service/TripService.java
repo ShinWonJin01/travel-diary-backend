@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripPhotoResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
@@ -19,8 +20,10 @@ import com.shinwonjin.traveldiary.entity.Trip;
 import com.shinwonjin.traveldiary.entity.TripMember;
 import com.shinwonjin.traveldiary.entity.TripMemberRole;
 import com.shinwonjin.traveldiary.entity.TripMemberStatus;
+import com.shinwonjin.traveldiary.entity.TripPhoto;
 import com.shinwonjin.traveldiary.repository.MemberRepository;
 import com.shinwonjin.traveldiary.repository.TripMemberRepository;
+import com.shinwonjin.traveldiary.repository.TripPhotoRepository;
 import com.shinwonjin.traveldiary.repository.TripRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -32,6 +35,7 @@ public class TripService {
     private final TripRepository tripRepository;
     private final MemberRepository memberRepository;
     private final TripMemberRepository tripMemberRepository;
+    private final TripPhotoRepository tripPhotoRepository;
     private final FileStorageService fileStorageService;
 
     @Transactional
@@ -139,6 +143,164 @@ public class TripService {
         trip.updateCoverImagePath(coverImagePath);
 
         return TripResponse.from(trip);
+    }
+
+    @Transactional
+    public TripPhotoResponse uploadTripPhoto(
+            Long memberId,
+            Long tripId,
+            MultipartFile file
+    ) {
+        Trip trip = tripRepository
+                .findById(tripId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "여행 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        boolean isOwner =
+                trip.getOwner()
+                        .getId()
+                        .equals(memberId);
+
+        boolean isAcceptedMember =
+                tripMemberRepository
+                        .existsByTripIdAndMemberIdAndStatus(
+                                tripId,
+                                memberId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        if (!isOwner && !isAcceptedMember) {
+            throw new IllegalArgumentException(
+                    "이 여행에 사진을 등록할 권한이 없습니다."
+            );
+        }
+
+        Member uploadedBy = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        String filePath =
+                fileStorageService.storeTripPhoto(
+                        tripId,
+                        file
+                );
+
+        String originalFileName =
+                file.getOriginalFilename();
+
+        if (
+                originalFileName == null
+                || originalFileName.isBlank()
+        ) {
+            originalFileName = "photo";
+        }
+
+        TripPhoto tripPhoto = TripPhoto.create(
+                trip,
+                uploadedBy,
+                filePath,
+                originalFileName,
+                null,
+                null,
+                null
+        );
+
+        TripPhoto savedPhoto =
+                tripPhotoRepository.save(tripPhoto);
+
+        return TripPhotoResponse.from(savedPhoto);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TripPhotoResponse> getTripPhotos(
+            Long memberId,
+            Long tripId
+    ) {
+        Trip trip = tripRepository
+                .findById(tripId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "여행 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        boolean isOwner =
+                trip.getOwner()
+                        .getId()
+                        .equals(memberId);
+
+        boolean isAcceptedMember =
+                tripMemberRepository
+                        .existsByTripIdAndMemberIdAndStatus(
+                                tripId,
+                                memberId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        if (!isOwner && !isAcceptedMember) {
+            throw new IllegalArgumentException(
+                    "이 여행의 사진을 조회할 권한이 없습니다."
+            );
+        }
+
+        return tripPhotoRepository
+                .findAllByTripIdOrderByCreatedAtAsc(tripId)
+                .stream()
+                .map(TripPhotoResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public void deleteTripPhoto(
+            Long memberId,
+            Long tripId,
+            Long photoId
+    ) {
+        TripPhoto tripPhoto = tripPhotoRepository
+                .findById(photoId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "사진 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        if (!tripPhoto.getTrip().getId().equals(tripId)) {
+            throw new IllegalArgumentException(
+                    "이 여행의 사진이 아닙니다."
+            );
+        }
+
+        boolean isOwner =
+                tripPhoto.getTrip()
+                        .getOwner()
+                        .getId()
+                        .equals(memberId);
+
+        boolean isUploader =
+                tripPhoto.getUploadedBy() != null
+                && tripPhoto.getUploadedBy()
+                        .getId()
+                        .equals(memberId);
+
+        if (!isOwner && !isUploader) {
+            throw new IllegalArgumentException(
+                    "이 사진을 삭제할 권한이 없습니다."
+            );
+        }
+
+        fileStorageService.deleteTripPhoto(
+                tripId,
+                tripPhoto.getFilePath()
+        );
+
+        tripPhotoRepository.delete(tripPhoto);
     }
 
     @Transactional(readOnly = true)
@@ -308,6 +470,7 @@ public class TripService {
                         )
                 );
 
+        tripPhotoRepository.deleteAllByTripId(tripId);
         tripMemberRepository.deleteAllByTripId(tripId);
         tripRepository.delete(trip);
 

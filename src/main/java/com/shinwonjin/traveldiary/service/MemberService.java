@@ -1,5 +1,7 @@
 package com.shinwonjin.traveldiary.service;
 
+import java.util.List;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +17,11 @@ import com.shinwonjin.traveldiary.dto.member.MemberPasswordChangeRequest;
 import com.shinwonjin.traveldiary.dto.member.MemberProfileUpdateRequest;
 import com.shinwonjin.traveldiary.dto.member.MemberResponse;
 import com.shinwonjin.traveldiary.entity.Member;
+import com.shinwonjin.traveldiary.entity.Trip;
 import com.shinwonjin.traveldiary.repository.MemberRepository;
+import com.shinwonjin.traveldiary.repository.TripMemberRepository;
+import com.shinwonjin.traveldiary.repository.TripPhotoRepository;
+import com.shinwonjin.traveldiary.repository.TripRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,6 +33,10 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final FileStorageService fileStorageService;
+    private final TripRepository tripRepository;
+    private final TripMemberRepository tripMemberRepository;
+    private final TripPhotoRepository tripPhotoRepository;
+    private final TripService tripService;
 
     @Transactional
     public MemberResponse createMember(
@@ -85,6 +95,21 @@ public class MemberService {
                         .getAccessTokenExpirationSeconds(),
                 MemberResponse.from(member)
         );
+    }
+
+    @Transactional(readOnly = true)
+    public MemberResponse getCurrentMember(
+            Long memberId
+    ) {
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        return MemberResponse.from(member);
     }
 
     @Transactional
@@ -292,6 +317,23 @@ public class MemberService {
                     "비밀번호가 올바르지 않습니다."
             );
         }
+
+        List<Trip> ownedTrips =
+                tripRepository
+                        .findAllByOwnerIdOrderByCreatedAtDesc(
+                                memberId
+                        );
+
+        for (Trip trip : ownedTrips) {
+            tripService.deleteTrip(
+                    memberId,
+                    trip.getId()
+            );
+        }
+
+        tripPhotoRepository.clearUploadedByMemberId(memberId);
+
+        tripMemberRepository.deleteAllByMemberId(memberId);
 
         memberRepository.delete(member);
     }
