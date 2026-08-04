@@ -252,6 +252,56 @@ public class TripService {
         return TripResponse.from(trip);
     }
 
+    @Transactional
+    public void deleteTrip(
+            Long memberId,
+            Long tripId
+    ) {
+        Trip trip = tripRepository
+                .findByIdAndOwnerId(tripId, memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "여행 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        tripMemberRepository.deleteAllByTripId(tripId);
+        tripRepository.delete(trip);
+
+        fileStorageService.deleteTripFiles(tripId);
+    }
+
+    @Transactional
+    public void leaveTrip(
+            Long memberId,
+            Long tripId
+    ) {
+        TripMember tripMember = tripMemberRepository
+                .findByTripIdAndMemberId(
+                        tripId,
+                        memberId
+                )
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "참여 중인 여행을 찾을 수 없습니다."
+                        )
+                );
+
+        if (tripMember.getRole() == TripMemberRole.OWNER) {
+            throw new IllegalArgumentException(
+                    "여행 생성자는 여행에서 나갈 수 없습니다."
+            );
+        }
+
+        if (tripMember.getStatus() != TripMemberStatus.ACCEPTED) {
+            throw new IllegalArgumentException(
+                    "참여 중인 여행만 나갈 수 있습니다."
+            );
+        }
+
+        tripMemberRepository.delete(tripMember);
+    }
+
     private void validateTripDates(
             java.time.LocalDate startDate,
             java.time.LocalDate endDate

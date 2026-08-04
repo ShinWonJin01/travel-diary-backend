@@ -73,4 +73,6 @@ public interface TripMemberRepository
             TripMemberRole role,
             TripMemberStatus status
     );
+
+    void deleteAllByTripId(Long tripId);
 }

@@ -9,6 +9,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Comparator;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -113,6 +114,42 @@ public class FileStorageService {
         } catch (IOException exception) {
             throw new IllegalStateException(
                     "프로필 이미지 파일을 삭제하지 못했습니다.",
+                    exception
+            );
+        }
+    }
+
+    public void deleteTripFiles(Long tripId) {
+        Path tripDirectory = uploadRoot
+                .resolve("trips")
+                .resolve(String.valueOf(tripId))
+                .normalize();
+
+        if (!tripDirectory.startsWith(uploadRoot)) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 여행 파일 삭제 경로입니다."
+            );
+        }
+
+        if (!Files.exists(tripDirectory)) {
+            return;
+        }
+
+        try (var paths = Files.walk(tripDirectory)) {
+            paths.sorted(Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException exception) {
+                            throw new IllegalStateException(
+                                    "여행 이미지 파일을 삭제하지 못했습니다.",
+                                    exception
+                            );
+                        }
+                    });
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "여행 이미지 폴더를 삭제하지 못했습니다.",
                     exception
             );
         }
