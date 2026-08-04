@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -20,6 +21,7 @@ import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
 import com.shinwonjin.traveldiary.service.TripService;
 
 import jakarta.validation.Valid;
@@ -82,6 +84,24 @@ public class TripController {
                 tripService.getTrip(memberId, tripId);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{tripId}")
+    public ResponseEntity<TripResponse> updateTrip(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId,
+            @Valid @RequestBody TripUpdateRequest request
+    ) {
+    Long memberId = Long.valueOf(jwt.getSubject());
+
+    TripResponse response =
+            tripService.updateTrip(
+                    memberId,
+                    tripId,
+                    request
+            );
+
+    return ResponseEntity.ok(response);
     }
 
     @PostMapping(

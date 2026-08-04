@@ -92,4 +92,18 @@ public class Trip {
     public void updateCoverImagePath(String coverImagePath) {
         this.coverImagePath = coverImagePath;
     }
+
+    public void update(
+            String title,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate,
+            String description
+    ) {
+        this.title = title;
+        this.destination = destination;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.description = description;
+    }
 }

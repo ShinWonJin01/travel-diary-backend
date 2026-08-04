@@ -12,6 +12,7 @@ import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
 import com.shinwonjin.traveldiary.entity.Member;
 import com.shinwonjin.traveldiary.entity.Trip;
 import com.shinwonjin.traveldiary.entity.TripMember;
@@ -37,7 +38,10 @@ public class TripService {
             Long memberId,
             TripCreateRequest request
     ) {
-        validateTripDates(request);
+        validateTripDates(
+                request.startDate(),
+                request.endDate()
+        );
 
         Member owner = memberRepository
                 .findById(memberId)
@@ -70,6 +74,41 @@ public class TripService {
         tripMemberRepository.save(ownerTripMember);
 
         return TripResponse.from(savedTrip);
+    }
+
+    @Transactional
+    public TripResponse updateTrip(
+            Long memberId,
+            Long tripId,
+            TripUpdateRequest request
+    ) {
+    validateTripDates(
+            request.startDate(),
+            request.endDate()
+    );
+
+    Trip trip = tripRepository
+            .findByIdAndOwnerId(
+                    tripId,
+                    memberId
+            )
+            .orElseThrow(() ->
+                    new IllegalArgumentException(
+                            "여행 정보를 찾을 수 없습니다."
+                    )
+            );
+
+    trip.update(
+            request.title().strip(),
+            request.destination().strip(),
+            request.startDate(),
+            request.endDate(),
+            request.description() == null
+                    ? ""
+                    : request.description().strip()
+    );
+
+    return TripResponse.from(trip);
     }
 
     @Transactional
@@ -214,12 +253,12 @@ public class TripService {
     }
 
     private void validateTripDates(
-            TripCreateRequest request
+            java.time.LocalDate startDate,
+            java.time.LocalDate endDate
     ) {
         if (
-                request.endDate() != null
-                && request.endDate()
-                        .isBefore(request.startDate())
+                endDate != null
+                && endDate.isBefore(startDate)
         ) {
             throw new IllegalArgumentException(
                     "종료일은 시작일보다 빠를 수 없습니다."
