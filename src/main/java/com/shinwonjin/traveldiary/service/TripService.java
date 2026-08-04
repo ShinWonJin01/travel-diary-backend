@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
@@ -250,6 +251,48 @@ public class TripService {
         }
 
         return TripResponse.from(trip);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TripParticipantResponse> getTripParticipants(
+            Long memberId,
+            Long tripId
+    ) {
+        Trip trip = tripRepository
+                .findById(tripId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "여행 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        boolean isOwner =
+                trip.getOwner()
+                        .getId()
+                        .equals(memberId);
+
+        boolean isAcceptedMember =
+                tripMemberRepository
+                        .existsByTripIdAndMemberIdAndStatus(
+                                tripId,
+                                memberId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        if (!isOwner && !isAcceptedMember) {
+            throw new IllegalArgumentException(
+                    "이 여행의 참여자 정보를 조회할 권한이 없습니다."
+            );
+        }
+
+        return tripMemberRepository
+                .findAllByTripIdAndStatusOrderByCreatedAtAsc(
+                        tripId,
+                        TripMemberStatus.ACCEPTED
+                )
+                .stream()
+                .map(TripParticipantResponse::from)
+                .toList();
     }
 
     @Transactional

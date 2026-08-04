@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
@@ -83,6 +84,22 @@ public class TripController {
 
         TripResponse response =
                 tripService.getTrip(memberId, tripId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{tripId}/members")
+    public ResponseEntity<List<TripParticipantResponse>> getTripParticipants(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId
+    ) {
+        Long memberId = Long.valueOf(jwt.getSubject());
+
+        List<TripParticipantResponse> response =
+                tripService.getTripParticipants(
+                        memberId,
+                        tripId
+                );
 
         return ResponseEntity.ok(response);
     }
