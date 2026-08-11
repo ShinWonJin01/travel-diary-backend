@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -21,7 +22,9 @@ import org.springframework.web.multipart.MultipartFile;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripPhotoMemoUpdateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripPhotoResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripPhotoTakenAtUpdateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
@@ -222,5 +225,45 @@ public class TripController {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{tripId}/photos/{photoId}/memo")
+    public ResponseEntity<TripPhotoResponse> updateTripPhotoMemo(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId,
+            @PathVariable Long photoId,
+            @Valid @RequestBody TripPhotoMemoUpdateRequest request
+    ) {
+    Long memberId = Long.valueOf(jwt.getSubject());
+
+    TripPhotoResponse response =
+            tripService.updateTripPhotoMemo(
+                    memberId,
+                    tripId,
+                    photoId,
+                    request
+            );
+
+    return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{tripId}/photos/{photoId}/taken-at")
+    public ResponseEntity<TripPhotoResponse> updateTripPhotoTakenAt(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId,
+            @PathVariable Long photoId,
+            @RequestBody TripPhotoTakenAtUpdateRequest request
+    ) {
+    Long memberId = Long.valueOf(jwt.getSubject());
+
+    TripPhotoResponse response =
+            tripService.updateTripPhotoTakenAt(
+                    memberId,
+                    tripId,
+                    photoId,
+                    request
+            );
+
+    return ResponseEntity.ok(response);
     }
 }

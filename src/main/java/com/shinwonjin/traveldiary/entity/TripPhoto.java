@@ -40,6 +40,12 @@ public class TripPhoto {
     @Column(name = "longitude")
     private Double longitude;
 
+    @Column(name = "location_name", length = 500)
+    private String locationName;
+
+    @Column(name = "memo", length = 1000)
+    private String memo;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -50,7 +56,9 @@ public class TripPhoto {
             String originalFileName,
             LocalDateTime takenAt,
             Double latitude,
-            Double longitude
+            Double longitude,
+            String locationName,
+            String memo
     ) {
         this.trip = trip;
         this.uploadedBy = uploadedBy;
@@ -59,6 +67,8 @@ public class TripPhoto {
         this.takenAt = takenAt;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.locationName = locationName;
+        this.memo = memo;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -69,7 +79,9 @@ public class TripPhoto {
             String originalFileName,
             LocalDateTime takenAt,
             Double latitude,
-            Double longitude
+            Double longitude,
+            String locationName,
+            String memo
     ) {
         return new TripPhoto(
                 trip,
@@ -78,7 +90,24 @@ public class TripPhoto {
                 originalFileName,
                 takenAt,
                 latitude,
-                longitude
+                longitude,
+                locationName,
+                memo
         );
+    }
+
+    public void updateMemo(
+            String memo
+    ) {
+        this.memo =
+                memo == null || memo.isBlank()
+                        ? null
+                        : memo.trim();
+    }
+
+    public void updateTakenAt(
+            LocalDateTime takenAt
+    ) {
+        this.takenAt = takenAt;
     }
 }

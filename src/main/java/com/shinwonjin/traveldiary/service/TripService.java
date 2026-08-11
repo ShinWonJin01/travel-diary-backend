@@ -3,6 +3,7 @@ package com.shinwonjin.traveldiary.service;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
+import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,7 +12,9 @@ import org.springframework.web.multipart.MultipartFile;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripPhotoMemoUpdateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripPhotoResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripPhotoTakenAtUpdateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
@@ -37,6 +40,8 @@ public class TripService {
     private final TripMemberRepository tripMemberRepository;
     private final TripPhotoRepository tripPhotoRepository;
     private final FileStorageService fileStorageService;
+    private final PhotoMetadataService photoMetadataService;
+    private final ReverseGeocodingService reverseGeocodingService;
 
     @Transactional
     public TripResponse createTrip(
@@ -186,6 +191,23 @@ public class TripService {
                         )
                 );
 
+        PhotoMetadataService.PhotoMetadata metadata =
+                photoMetadataService.extractMetadata(file);
+
+        LocalDateTime takenAt = metadata.takenAt();
+        Double latitude = metadata.latitude();
+        Double longitude = metadata.longitude();
+
+        String locationName = null;
+
+        if (latitude != null && longitude != null) {
+        locationName =
+                reverseGeocodingService.getLocationName(
+                        latitude,
+                        longitude
+                );
+        }
+
         String filePath =
                 fileStorageService.storeTripPhoto(
                         tripId,
@@ -207,8 +229,10 @@ public class TripService {
                 uploadedBy,
                 filePath,
                 originalFileName,
-                null,
-                null,
+                takenAt,
+                latitude,
+                longitude,
+                locationName,
                 null
         );
 
@@ -216,6 +240,50 @@ public class TripService {
                 tripPhotoRepository.save(tripPhoto);
 
         return TripPhotoResponse.from(savedPhoto);
+    }
+
+    @Transactional
+    public TripPhotoResponse updateTripPhotoMemo(
+            Long memberId,
+            Long tripId,
+            Long photoId,
+            TripPhotoMemoUpdateRequest request
+    ) {
+    TripPhoto tripPhoto = tripPhotoRepository
+            .findById(photoId)
+            .orElseThrow(() ->
+                    new IllegalArgumentException(
+                            "사진 정보를 찾을 수 없습니다."
+                    )
+            );
+
+    if (!tripPhoto.getTrip().getId().equals(tripId)) {
+            throw new IllegalArgumentException(
+                    "이 여행의 사진이 아닙니다."
+            );
+    }
+
+    boolean isOwner =
+            tripPhoto.getTrip()
+                    .getOwner()
+                    .getId()
+                    .equals(memberId);
+
+    boolean isUploader =
+            tripPhoto.getUploadedBy() != null
+            && tripPhoto.getUploadedBy()
+                    .getId()
+                    .equals(memberId);
+
+    if (!isOwner && !isUploader) {
+            throw new IllegalArgumentException(
+                    "이 사진의 메모를 수정할 권한이 없습니다."
+            );
+    }
+
+    tripPhoto.updateMemo(request.memo());
+
+    return TripPhotoResponse.from(tripPhoto);
     }
 
     @Transactional(readOnly = true)
@@ -301,6 +369,50 @@ public class TripService {
         );
 
         tripPhotoRepository.delete(tripPhoto);
+    }
+
+    @Transactional
+    public TripPhotoResponse updateTripPhotoTakenAt(
+            Long memberId,
+            Long tripId,
+            Long photoId,
+            TripPhotoTakenAtUpdateRequest request
+    ) {
+        TripPhoto tripPhoto = tripPhotoRepository
+                .findById(photoId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "사진 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        if (!tripPhoto.getTrip().getId().equals(tripId)) {
+            throw new IllegalArgumentException(
+                    "이 여행의 사진이 아닙니다."
+            );
+        }
+
+        boolean isOwner =
+                tripPhoto.getTrip()
+                        .getOwner()
+                        .getId()
+                        .equals(memberId);
+
+        boolean isUploader =
+                tripPhoto.getUploadedBy() != null
+                && tripPhoto.getUploadedBy()
+                        .getId()
+                        .equals(memberId);
+
+        if (!isOwner && !isUploader) {
+            throw new IllegalArgumentException(
+                    "이 사진의 촬영시간을 수정할 권한이 없습니다."
+            );
+        }
+
+        tripPhoto.updateTakenAt(request.takenAt());
+
+        return TripPhotoResponse.from(tripPhoto);
     }
 
     @Transactional(readOnly = true)

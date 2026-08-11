@@ -15,6 +15,8 @@ public record TripPhotoResponse(
         LocalDateTime takenAt,
         Double latitude,
         Double longitude,
+        String locationName,
+        String memo,
         LocalDateTime createdAt
 ) {
     public static TripPhotoResponse from(TripPhoto tripPhoto) {
@@ -30,6 +32,8 @@ public record TripPhotoResponse(
                 tripPhoto.getTakenAt(),
                 tripPhoto.getLatitude(),
                 tripPhoto.getLongitude(),
+                tripPhoto.getLocationName(),
+                tripPhoto.getMemo(),
                 tripPhoto.getCreatedAt()
         );
     }
