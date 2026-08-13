@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.shinwonjin.traveldiary.dto.trip.TripAiDiaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
@@ -265,5 +266,30 @@ public class TripController {
             );
 
     return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{tripId}/ai-diary")
+    public ResponseEntity<TripAiDiaryResponse> getTripAiDiary(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId
+    ) {
+    Long memberId = Long.valueOf(jwt.getSubject());
+
+    return tripService.getTripAiDiary(memberId, tripId)
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @PostMapping("/{tripId}/ai-diary")
+    public ResponseEntity<TripAiDiaryResponse> generateTripAiDiary(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId
+    ) {
+        Long memberId = Long.valueOf(jwt.getSubject());
+
+        TripAiDiaryResponse response =
+                tripService.generateTripAiDiary(memberId, tripId);
+
+        return ResponseEntity.ok(response);
     }
 }
