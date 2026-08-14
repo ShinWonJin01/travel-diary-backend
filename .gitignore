@@ -34,3 +34,6 @@ build/
 
 # Uploaded files
 uploads/
+
+.env
+.env.*

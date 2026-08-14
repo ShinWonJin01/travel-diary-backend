@@ -110,4 +110,14 @@ public class TripPhoto {
     ) {
         this.takenAt = takenAt;
     }
+
+    public void updateLocation(
+            Double latitude,
+            Double longitude,
+            String locationName
+    ) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.locationName = locationName;
+    }
 }

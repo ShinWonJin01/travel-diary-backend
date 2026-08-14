@@ -23,6 +23,7 @@ import com.shinwonjin.traveldiary.dto.trip.TripAiDiaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripPhotoLocationUpdateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripPhotoMemoUpdateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripPhotoResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripPhotoTakenAtUpdateRequest;
@@ -266,6 +267,26 @@ public class TripController {
             );
 
     return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{tripId}/photos/{photoId}/location")
+    public ResponseEntity<TripPhotoResponse> updateTripPhotoLocation(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId,
+            @PathVariable Long photoId,
+            @RequestBody TripPhotoLocationUpdateRequest request
+    ) {
+        Long memberId = Long.valueOf(jwt.getSubject());
+
+        TripPhotoResponse response =
+                tripService.updateTripPhotoLocation(
+                        memberId,
+                        tripId,
+                        photoId,
+                        request
+                );
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{tripId}/ai-diary")

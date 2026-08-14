@@ -14,6 +14,7 @@ import com.shinwonjin.traveldiary.dto.trip.TripAiDiaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripListResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripParticipantResponse;
+import com.shinwonjin.traveldiary.dto.trip.TripPhotoLocationUpdateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripPhotoMemoUpdateRequest;
 import com.shinwonjin.traveldiary.dto.trip.TripPhotoResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripPhotoTakenAtUpdateRequest;
@@ -421,6 +422,71 @@ public class TripService {
         return TripPhotoResponse.from(tripPhoto);
     }
 
+    @Transactional
+    public TripPhotoResponse updateTripPhotoLocation(
+            Long memberId,
+            Long tripId,
+            Long photoId,
+            TripPhotoLocationUpdateRequest request
+    ) {
+        TripPhoto tripPhoto = tripPhotoRepository.findById(photoId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("사진 정보를 찾을 수 없습니다.")
+                );
+
+        if (!tripPhoto.getTrip().getId().equals(tripId)) {
+            throw new IllegalArgumentException("이 여행의 사진이 아닙니다.");
+        }
+
+        boolean isOwner =
+                tripPhoto.getTrip().getOwner().getId().equals(memberId);
+
+        boolean isUploader =
+                tripPhoto.getUploadedBy() != null
+                && tripPhoto.getUploadedBy().getId().equals(memberId);
+
+        if (!isOwner && !isUploader) {
+            throw new IllegalArgumentException(
+                    "이 사진의 위치를 수정할 권한이 없습니다."
+            );
+        }
+
+        Double latitude = request.latitude();
+        Double longitude = request.longitude();
+
+        if (latitude == null || longitude == null) {
+            throw new IllegalArgumentException(
+                    "위도와 경도를 모두 입력해 주세요."
+            );
+        }
+
+        if (latitude < -90 || latitude > 90) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 위도입니다."
+            );
+        }
+
+        if (longitude < -180 || longitude > 180) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 경도입니다."
+            );
+        }
+
+        String locationName =
+                reverseGeocodingService.getLocationName(
+                        latitude,
+                        longitude
+                );
+
+        tripPhoto.updateLocation(
+                latitude,
+                longitude,
+                locationName
+        );
+
+        return TripPhotoResponse.from(tripPhoto);
+    }
+
     @Transactional(readOnly = true)
     public List<TripListResponse> getMyTrips(
             Long memberId
@@ -742,12 +808,16 @@ public class TripService {
             Long memberId,
             Long tripId
     ) {
-        getTrip(memberId, tripId);
-
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("여행 정보를 찾을 수 없습니다.")
                 );
+
+        if (!trip.getOwner().getId().equals(memberId)) {
+            throw new IllegalArgumentException(
+                    "여행 소유자만 AI 여행기를 생성할 수 있습니다."
+            );
+        }
 
         List<TripPhoto> photos =
                 tripPhotoRepository.findAllByTripIdOrderByCreatedAtAsc(tripId);
