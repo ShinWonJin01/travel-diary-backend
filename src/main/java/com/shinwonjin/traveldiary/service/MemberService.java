@@ -17,7 +17,11 @@ import com.shinwonjin.traveldiary.dto.member.MemberPasswordChangeRequest;
 import com.shinwonjin.traveldiary.dto.member.MemberProfileUpdateRequest;
 import com.shinwonjin.traveldiary.dto.member.MemberResponse;
 import com.shinwonjin.traveldiary.entity.Member;
+import com.shinwonjin.traveldiary.entity.TripMember;
+import com.shinwonjin.traveldiary.entity.NotificationType;
 import com.shinwonjin.traveldiary.entity.Trip;
+import com.shinwonjin.traveldiary.entity.TripMemberRole;
+import com.shinwonjin.traveldiary.entity.TripMemberStatus;
 import com.shinwonjin.traveldiary.repository.MemberRepository;
 import com.shinwonjin.traveldiary.repository.TripMemberRepository;
 import com.shinwonjin.traveldiary.repository.TripPhotoRepository;
@@ -37,6 +41,7 @@ public class MemberService {
     private final TripMemberRepository tripMemberRepository;
     private final TripPhotoRepository tripPhotoRepository;
     private final TripService tripService;
+    private final NotificationService notificationService;
 
     @Transactional
     public MemberResponse createMember(
@@ -325,15 +330,39 @@ public class MemberService {
                         );
 
         for (Trip trip : ownedTrips) {
-            tripService.deleteTrip(
-                    memberId,
-                    trip.getId()
+                tripService.deleteTripForMemberWithdrawal(
+                        memberId,
+                        trip.getId()
+                );
+        }
+
+        List<TripMember> participatingTrips =
+                tripMemberRepository
+                        .findAllByMemberIdAndRoleAndStatusOrderByCreatedAtDesc(
+                                memberId,
+                                TripMemberRole.MEMBER,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        for (TripMember tripMember : participatingTrips) {
+            Trip trip = tripMember.getTrip();
+
+            notificationService.createNotification(
+                    trip.getOwner(),
+                    null,
+                    trip,
+                    NotificationType.MEMBER_LEFT_TRIP,
+                    member.getNickname()
+                            + "님이 회원 탈퇴로 '"
+                            + trip.getTitle()
+                            + "'에서 나갔습니다."
             );
         }
 
         tripPhotoRepository.clearUploadedByMemberId(memberId);
-
         tripMemberRepository.deleteAllByMemberId(memberId);
+
+        notificationService.cleanupMemberNotifications(memberId);
 
         memberRepository.delete(member);
     }

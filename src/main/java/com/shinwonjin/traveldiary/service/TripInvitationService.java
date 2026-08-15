@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.shinwonjin.traveldiary.dto.invitation.TripInvitationRequest;
 import com.shinwonjin.traveldiary.dto.invitation.TripInvitationResponse;
 import com.shinwonjin.traveldiary.entity.Member;
+import com.shinwonjin.traveldiary.entity.NotificationType;
 import com.shinwonjin.traveldiary.entity.Trip;
 import com.shinwonjin.traveldiary.entity.TripMember;
 import com.shinwonjin.traveldiary.entity.TripMemberRole;
@@ -25,6 +26,7 @@ public class TripInvitationService {
     private final TripRepository tripRepository;
     private final MemberRepository memberRepository;
     private final TripMemberRepository tripMemberRepository;
+    private final NotificationService notificationService;
 
     /**
      * 여행에 회원 초대
@@ -80,6 +82,19 @@ public class TripInvitationService {
 
         TripMember savedInvitation =
                 tripMemberRepository.save(invitation);
+
+        Member owner = trip.getOwner();
+
+        notificationService.createNotification(
+                invitee,
+                owner,
+                trip,
+                NotificationType.TRIP_INVITED,
+                owner.getNickname()
+                        + "님이 '"
+                        + trip.getTitle()
+                        + "'에 초대했습니다."
+        );
 
         long currentParticipantCount =
                 countAcceptedParticipants(tripId);
@@ -159,10 +174,29 @@ public class TripInvitationService {
 
         invitation.accept();
 
-        long currentParticipantCount =
-                countAcceptedParticipants(
-                        invitation.getTrip().getId()
+        Trip trip = invitation.getTrip();
+
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
                 );
+
+        notificationService.createNotification(
+                trip.getOwner(),
+                member,
+                trip,
+                NotificationType.INVITATION_ACCEPTED,
+                member.getNickname()
+                        + "님이 '"
+                        + trip.getTitle()
+                        + "' 초대를 수락했습니다."
+        );
+
+        long currentParticipantCount =
+                countAcceptedParticipants(trip.getId());
 
         return TripInvitationResponse.from(
                 invitation,
@@ -186,10 +220,29 @@ public class TripInvitationService {
 
         invitation.decline();
 
-        long currentParticipantCount =
-                countAcceptedParticipants(
-                        invitation.getTrip().getId()
+        Trip trip = invitation.getTrip();
+
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
                 );
+
+        notificationService.createNotification(
+                trip.getOwner(),
+                member,
+                trip,
+                NotificationType.INVITATION_REJECTED,
+                member.getNickname()
+                        + "님이 '"
+                        + trip.getTitle()
+                        + "' 초대를 거절했습니다."
+        );
+
+        long currentParticipantCount =
+                countAcceptedParticipants(trip.getId());
 
         return TripInvitationResponse.from(
                 invitation,

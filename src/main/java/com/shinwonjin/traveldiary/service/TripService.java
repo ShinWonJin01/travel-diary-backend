@@ -22,6 +22,7 @@ import com.shinwonjin.traveldiary.dto.trip.TripResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripSummaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripUpdateRequest;
 import com.shinwonjin.traveldiary.entity.Member;
+import com.shinwonjin.traveldiary.entity.NotificationType;
 import com.shinwonjin.traveldiary.entity.Trip;
 import com.shinwonjin.traveldiary.entity.TripAiDiary;
 import com.shinwonjin.traveldiary.entity.TripMember;
@@ -49,6 +50,7 @@ public class TripService {
     private final ReverseGeocodingService reverseGeocodingService;
     private final TripAiDiaryRepository tripAiDiaryRepository;
     private final GeminiService geminiService;
+    private final NotificationService notificationService;
 
     @Transactional
     public TripResponse createTrip(
@@ -99,33 +101,57 @@ public class TripService {
             Long tripId,
             TripUpdateRequest request
     ) {
-    validateTripDates(
-            request.startDate(),
-            request.endDate()
-    );
+        validateTripDates(
+                request.startDate(),
+                request.endDate()
+        );
 
-    Trip trip = tripRepository
-            .findByIdAndOwnerId(
-                    tripId,
-                    memberId
-            )
-            .orElseThrow(() ->
-                    new IllegalArgumentException(
-                            "여행 정보를 찾을 수 없습니다."
-                    )
+        Trip trip = tripRepository
+                .findByIdAndOwnerId(
+                        tripId,
+                        memberId
+                )
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "여행 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        trip.update(
+                request.title().strip(),
+                request.destination().strip(),
+                request.startDate(),
+                request.endDate(),
+                request.description() == null
+                        ? ""
+                        : request.description().strip()
+        );
+
+        List<TripMember> participants =
+                tripMemberRepository
+                        .findAllByTripIdAndStatusOrderByCreatedAtAsc(
+                                tripId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        for (TripMember participant : participants) {
+            if (participant.getRole() != TripMemberRole.MEMBER) {
+                continue;
+            }
+
+            notificationService.createNotification(
+                    participant.getMember(),
+                    trip.getOwner(),
+                    trip,
+                    NotificationType.TRIP_UPDATED,
+                    trip.getOwner().getNickname()
+                            + "님이 '"
+                            + trip.getTitle()
+                            + "'의 여행 정보를 수정했습니다."
             );
+        }
 
-    trip.update(
-            request.title().strip(),
-            request.destination().strip(),
-            request.startDate(),
-            request.endDate(),
-            request.description() == null
-                    ? ""
-                    : request.description().strip()
-    );
-
-    return TripResponse.from(trip);
+        return TripResponse.from(trip);
     }
 
     @Transactional
@@ -654,11 +680,88 @@ public class TripService {
                         )
                 );
 
+        List<TripMember> participants =
+                tripMemberRepository
+                        .findAllByTripIdAndStatusOrderByCreatedAtAsc(
+                                tripId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        for (TripMember participant : participants) {
+            if (participant.getRole() != TripMemberRole.MEMBER) {
+                continue;
+            }
+
+            notificationService.createNotification(
+                    participant.getMember(),
+                    trip.getOwner(),
+                    null,
+                    NotificationType.TRIP_DELETED,
+                    trip.getOwner().getNickname()
+                            + "님이 '"
+                            + trip.getTitle()
+                            + "'을 삭제했습니다."
+            );
+        }
+
         tripAiDiaryRepository.deleteByTripId(tripId);
         tripPhotoRepository.deleteAllByTripId(tripId);
         tripMemberRepository.deleteAllByTripId(tripId);
+
+        notificationService.clearTrip(tripId);
+
         tripRepository.delete(trip);
         fileStorageService.deleteTripFiles(tripId);
+    }
+
+    @Transactional
+    public void deleteTripForMemberWithdrawal(
+            Long memberId,
+            Long tripId
+    ) {
+    Trip trip = tripRepository
+            .findByIdAndOwnerId(tripId, memberId)
+            .orElseThrow(() ->
+                    new IllegalArgumentException(
+                            "여행 정보를 찾을 수 없습니다."
+                    )
+            );
+
+    List<TripMember> participants =
+            tripMemberRepository
+                    .findAllByTripIdAndStatusOrderByCreatedAtAsc(
+                            tripId,
+                            TripMemberStatus.ACCEPTED
+                    );
+
+    String ownerNickname = trip.getOwner().getNickname();
+    String tripTitle = trip.getTitle();
+
+    for (TripMember participant : participants) {
+            if (participant.getRole() != TripMemberRole.MEMBER) {
+            continue;
+            }
+
+            notificationService.createNotification(
+                    participant.getMember(),
+                    null,
+                    null,
+                    NotificationType.TRIP_DELETED,
+                    ownerNickname
+                            + "님이 회원 탈퇴하여 '"
+                            + tripTitle
+                            + "'이 삭제되었습니다."
+            );
+    }
+
+    tripAiDiaryRepository.deleteByTripId(tripId);
+    tripPhotoRepository.deleteAllByTripId(tripId);
+    tripMemberRepository.deleteAllByTripId(tripId);
+
+    notificationService.clearTrip(tripId);
+
+    tripRepository.delete(trip);
+    fileStorageService.deleteTripFiles(tripId);
     }
 
     @Transactional
@@ -688,6 +791,27 @@ public class TripService {
                     "참여 중인 여행만 나갈 수 있습니다."
             );
         }
+
+        Trip trip = tripMember.getTrip();
+
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        notificationService.createNotification(
+                trip.getOwner(),
+                member,
+                trip,
+                NotificationType.MEMBER_LEFT_TRIP,
+                member.getNickname()
+                        + "님이 '"
+                        + trip.getTitle()
+                        + "'에서 나갔습니다."
+        );
 
         tripMemberRepository.delete(tripMember);
     }
