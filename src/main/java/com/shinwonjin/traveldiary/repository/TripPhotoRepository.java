@@ -12,6 +12,8 @@ public interface TripPhotoRepository extends JpaRepository<TripPhoto, Long> {
 
     List<TripPhoto> findAllByTripIdOrderByCreatedAtAsc(Long tripId);
 
+    List<TripPhoto> findTop100ByTripIdInOrderByCreatedAtDesc(List<Long> tripIds);
+    
     void deleteAllByTripId(Long tripId);
 
     @Modifying
