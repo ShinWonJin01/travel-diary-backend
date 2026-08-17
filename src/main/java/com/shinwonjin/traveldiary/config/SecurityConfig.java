@@ -41,9 +41,6 @@ public class SecurityConfig {
                                 "/uploads/**"
                         ).permitAll()
 
-                        // 기존 서버 테스트 API 허용
-                        .requestMatchers("/api/test").permitAll()
-
                         // 나머지 API는 JWT 필요
                         .anyRequest().authenticated()
                 )

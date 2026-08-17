@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaTypeFactory;
 
 import com.shinwonjin.traveldiary.dto.trip.TripAiDiaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
@@ -171,6 +173,33 @@ public class TripController {
                 );
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{tripId}/cover-image/file")
+    public ResponseEntity<Resource> getTripCoverImage(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId
+    ) {
+        Long memberId =
+                Long.valueOf(jwt.getSubject());
+
+        Resource resource =
+                tripService.getTripCoverImage(
+                        memberId,
+                        tripId
+                );
+
+        MediaType mediaType =
+                MediaTypeFactory
+                        .getMediaType(resource)
+                        .orElse(
+                                MediaType.APPLICATION_OCTET_STREAM
+                        );
+
+        return ResponseEntity
+                .ok()
+                .contentType(mediaType)
+                .body(resource);
     }
 
     @PostMapping(

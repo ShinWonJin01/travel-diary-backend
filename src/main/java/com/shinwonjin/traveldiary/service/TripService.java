@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
 
 import com.shinwonjin.traveldiary.dto.trip.TripAiDiaryResponse;
 import com.shinwonjin.traveldiary.dto.trip.TripCreateRequest;
@@ -183,6 +184,56 @@ public class TripService {
         return TripResponse.from(trip);
     }
 
+    @Transactional(readOnly = true)
+    public Resource getTripCoverImage(
+            Long memberId,
+            Long tripId
+    ) {
+        Trip trip = tripRepository
+                .findById(tripId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "여행 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        boolean isOwner =
+                trip.getOwner()
+                        .getId()
+                        .equals(memberId);
+
+        boolean isAcceptedMember =
+                tripMemberRepository
+                        .existsByTripIdAndMemberIdAndStatus(
+                                tripId,
+                                memberId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        if (!isOwner && !isAcceptedMember) {
+            throw new IllegalArgumentException(
+                    "이 여행의 대표 이미지를 조회할 권한이 없습니다."
+            );
+        }
+
+        String coverImagePath =
+                trip.getCoverImagePath();
+
+        if (
+                coverImagePath == null
+                || coverImagePath.isBlank()
+        ) {
+            throw new IllegalArgumentException(
+                    "등록된 대표 이미지가 없습니다."
+            );
+        }
+
+        return fileStorageService.loadTripImage(
+                tripId,
+                coverImagePath
+        );
+    }
+
     @Transactional
     public TripPhotoResponse uploadTripPhoto(
             Long memberId,
@@ -308,10 +359,21 @@ public class TripService {
                     .getId()
                     .equals(memberId);
 
-    if (!isOwner && !isUploader) {
-            throw new IllegalArgumentException(
-                    "이 사진의 메모를 수정할 권한이 없습니다."
-            );
+    boolean isAcceptedMember =
+            tripMemberRepository
+                    .existsByTripIdAndMemberIdAndStatus(
+                            tripId,
+                            memberId,
+                            TripMemberStatus.ACCEPTED
+                    );
+
+    if (
+            !isOwner
+            && !(isUploader && isAcceptedMember)
+    ) {
+        throw new IllegalArgumentException(
+                "이 사진의 메모를 수정할 권한이 없습니다."
+        );
     }
 
     tripPhoto.updateMemo(request.memo());
@@ -390,7 +452,18 @@ public class TripService {
                         .getId()
                         .equals(memberId);
 
-        if (!isOwner && !isUploader) {
+        boolean isAcceptedMember =
+                tripMemberRepository
+                        .existsByTripIdAndMemberIdAndStatus(
+                                tripId,
+                                memberId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        if (
+                !isOwner
+                && !(isUploader && isAcceptedMember)
+        ) {
             throw new IllegalArgumentException(
                     "이 사진을 삭제할 권한이 없습니다."
             );
@@ -437,7 +510,18 @@ public class TripService {
                         .getId()
                         .equals(memberId);
 
-        if (!isOwner && !isUploader) {
+        boolean isAcceptedMember =
+                tripMemberRepository
+                        .existsByTripIdAndMemberIdAndStatus(
+                                tripId,
+                                memberId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        if (
+                !isOwner
+                && !(isUploader && isAcceptedMember)
+        ) {
             throw new IllegalArgumentException(
                     "이 사진의 촬영시간을 수정할 권한이 없습니다."
             );
@@ -471,7 +555,18 @@ public class TripService {
                 tripPhoto.getUploadedBy() != null
                 && tripPhoto.getUploadedBy().getId().equals(memberId);
 
-        if (!isOwner && !isUploader) {
+        boolean isAcceptedMember =
+                tripMemberRepository
+                        .existsByTripIdAndMemberIdAndStatus(
+                                tripId,
+                                memberId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        if (
+                !isOwner
+                && !(isUploader && isAcceptedMember)
+        ) {
             throw new IllegalArgumentException(
                     "이 사진의 위치를 수정할 권한이 없습니다."
             );

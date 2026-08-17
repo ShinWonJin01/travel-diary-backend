@@ -1,5 +1,7 @@
 package com.shinwonjin.traveldiary.service;
 
+import java.net.MalformedURLException;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -14,6 +16,8 @@ import java.util.Comparator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.UrlResource;
+import org.springframework.core.io.Resource;
 
 @Service
 public class FileStorageService {
@@ -183,6 +187,72 @@ public class FileStorageService {
         }
     }
 
+    public Resource loadTripImage(
+            Long tripId,
+            String imagePath
+    ) {
+        if (
+                imagePath == null
+                || imagePath.isBlank()
+        ) {
+            throw new IllegalArgumentException(
+                    "이미지 정보를 찾을 수 없습니다."
+            );
+        }
+
+        String expectedPrefix =
+                "/uploads/trips/"
+                + tripId
+                + "/";
+
+        if (!imagePath.startsWith(expectedPrefix)) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 여행 이미지 경로입니다."
+            );
+        }
+
+        String relativePath =
+                imagePath.substring(
+                        "/uploads/".length()
+                );
+
+        Path tripDirectory = uploadRoot
+                .resolve("trips")
+                .resolve(String.valueOf(tripId))
+                .normalize();
+
+        Path targetPath = uploadRoot
+                .resolve(relativePath)
+                .normalize();
+
+        if (!targetPath.startsWith(tripDirectory)) {
+            throw new IllegalArgumentException(
+                    "올바르지 않은 여행 이미지 경로입니다."
+            );
+        }
+
+        if (
+                !Files.exists(targetPath)
+                || !Files.isRegularFile(targetPath)
+                || !Files.isReadable(targetPath)
+        ) {
+            throw new IllegalArgumentException(
+                    "이미지 파일을 찾을 수 없습니다."
+            );
+        }
+
+        try {
+            return new UrlResource(
+                    targetPath.toUri()
+            );
+        } catch (MalformedURLException exception) {
+            throw new IllegalStateException(
+                    "이미지 파일을 불러오지 못했습니다.",
+                    exception
+            );
+        }
+    }
+
     public void deleteTripFiles(Long tripId) {
         Path tripDirectory = uploadRoot
                 .resolve("trips")
@@ -329,6 +399,67 @@ public class FileStorageService {
         ) {
             throw new IllegalArgumentException(
                     "JPG, PNG 또는 WEBP 이미지만 등록할 수 있습니다."
+            );
+        }
+
+        validateImageSignature(file, contentType);
+    }
+
+    private void validateImageSignature(
+            MultipartFile file,
+            String contentType
+    ) {
+        try (InputStream inputStream =
+                file.getInputStream()) {
+
+            byte[] header = inputStream.readNBytes(12);
+
+            boolean valid = switch (
+                    contentType.toLowerCase(
+                            Locale.ROOT
+                    )
+            ) {
+                case "image/jpeg" ->
+                        header.length >= 3
+                        && (header[0] & 0xFF) == 0xFF
+                        && (header[1] & 0xFF) == 0xD8
+                        && (header[2] & 0xFF) == 0xFF;
+
+                case "image/png" ->
+                        header.length >= 8
+                        && (header[0] & 0xFF) == 0x89
+                        && header[1] == 0x50
+                        && header[2] == 0x4E
+                        && header[3] == 0x47
+                        && header[4] == 0x0D
+                        && header[5] == 0x0A
+                        && header[6] == 0x1A
+                        && header[7] == 0x0A;
+
+                case "image/webp" ->
+                        header.length >= 12
+                        && header[0] == 'R'
+                        && header[1] == 'I'
+                        && header[2] == 'F'
+                        && header[3] == 'F'
+                        && header[8] == 'W'
+                        && header[9] == 'E'
+                        && header[10] == 'B'
+                        && header[11] == 'P';
+
+                default -> false;
+            };
+
+            if (!valid) {
+                throw new IllegalArgumentException(
+                        "실제 이미지 파일 형식이 올바르지 않습니다."
+                );
+            }
+
+        } catch (IOException exception) {
+            throw new IllegalArgumentException(
+                    "이미지 파일을 확인할 수 없습니다.",
+                    exception
             );
         }
     }
