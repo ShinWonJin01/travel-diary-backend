@@ -2,6 +2,7 @@ package com.shinwonjin.traveldiary.service;
 
 import java.util.List;
 
+import org.springframework.core.io.Resource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -219,6 +220,36 @@ public class MemberService {
                 );
 
         return MemberResponse.from(member);
+    }
+
+    @Transactional(readOnly = true)
+    public Resource getProfileImage(
+            Long memberId
+    ) {
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        String profileImagePath =
+                member.getProfileImagePath();
+
+        if (
+                profileImagePath == null
+                || profileImagePath.isBlank()
+        ) {
+            throw new IllegalArgumentException(
+                    "등록된 프로필 이미지가 없습니다."
+            );
+        }
+
+        return fileStorageService.loadProfileImage(
+                memberId,
+                profileImagePath
+        );
     }
 
     @Transactional

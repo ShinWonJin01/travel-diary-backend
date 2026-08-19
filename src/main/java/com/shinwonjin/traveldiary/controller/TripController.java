@@ -241,6 +241,35 @@ public class TripController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{tripId}/photos/{photoId}/file")
+    public ResponseEntity<Resource> getTripPhotoFile(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long tripId,
+            @PathVariable Long photoId
+    ) {
+        Long memberId =
+                Long.valueOf(jwt.getSubject());
+
+        Resource resource =
+                tripService.getTripPhotoFile(
+                        memberId,
+                        tripId,
+                        photoId
+                );
+
+        MediaType mediaType =
+                MediaTypeFactory
+                        .getMediaType(resource)
+                        .orElse(
+                                MediaType.APPLICATION_OCTET_STREAM
+                        );
+
+        return ResponseEntity
+                .ok()
+                .contentType(mediaType)
+                .body(resource);
+    }
+
     @DeleteMapping("/{tripId}/photos/{photoId}")
     public ResponseEntity<Void> deleteTripPhoto(
             @AuthenticationPrincipal Jwt jwt,

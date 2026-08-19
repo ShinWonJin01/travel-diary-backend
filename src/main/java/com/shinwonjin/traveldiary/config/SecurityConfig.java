@@ -36,11 +36,6 @@ public class SecurityConfig {
                                 "/api/members/login"
                         ).permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/uploads/**"
-                        ).permitAll()
-
                         // 나머지 API는 JWT 필요
                         .anyRequest().authenticated()
                 )

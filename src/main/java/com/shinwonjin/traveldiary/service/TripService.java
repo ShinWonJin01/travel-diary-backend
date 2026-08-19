@@ -420,6 +420,53 @@ public class TripService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public Resource getTripPhotoFile(
+            Long memberId,
+            Long tripId,
+            Long photoId
+    ) {
+        TripPhoto tripPhoto = tripPhotoRepository
+                .findById(photoId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "사진 정보를 찾을 수 없습니다."
+                        )
+                );
+
+        if (!tripPhoto.getTrip().getId().equals(tripId)) {
+            throw new IllegalArgumentException(
+                    "이 여행의 사진이 아닙니다."
+            );
+        }
+
+        Trip trip = tripPhoto.getTrip();
+
+        boolean isOwner =
+                trip.getOwner()
+                        .getId()
+                        .equals(memberId);
+
+        boolean isAcceptedMember =
+                tripMemberRepository
+                        .existsByTripIdAndMemberIdAndStatus(
+                                tripId,
+                                memberId,
+                                TripMemberStatus.ACCEPTED
+                        );
+
+        if (!isOwner && !isAcceptedMember) {
+            throw new IllegalArgumentException(
+                    "이 여행의 사진을 조회할 권한이 없습니다."
+            );
+        }
+
+        return fileStorageService.loadTripImage(
+                tripId,
+                tripPhoto.getFilePath()
+        );
+    }
+
     @Transactional
     public void deleteTripPhoto(
             Long memberId,
