@@ -640,11 +640,20 @@ public class TripService {
             );
         }
 
-        String locationName =
+        String locationName;
+
+        if (
+                request.locationName() != null
+                && !request.locationName().isBlank()
+        ) {
+        locationName = request.locationName().trim();
+        } else {
+        locationName =
                 reverseGeocodingService.getLocationName(
                         latitude,
                         longitude
                 );
+        }
 
         tripPhoto.updateLocation(
                 latitude,
